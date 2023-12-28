@@ -16,3 +16,12 @@ type ProducerClient struct {
 func (p *ProducerClient) Start() error {
 	return nil
 }
+
+type ConsumerClient struct {
+	listenAddr string
+	consumech  chan<- Request
+}
+
+func (c *ConsumerClient) Start() error {
+	return nil
+}
