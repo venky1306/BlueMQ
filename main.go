@@ -11,7 +11,7 @@ func main() {
 	slog.SetDefault(logger)
 
 	cfg := &Config{
-		ListenAddr: ":5000",
+		ListenAddr: ":5001",
 		StoreProducerFunc: func() Storer {
 			return NewMemory()
 		},
