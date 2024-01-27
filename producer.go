@@ -9,15 +9,18 @@ import (
 	"golang.org/x/exp/slog"
 )
 
+// Producer is an interface for a producer.
 type Producer interface {
 	Start() error
 }
 
+// ProducerClient is a client for a producer.
 type ProducerClient struct {
 	listenAddr string
 	producech  chan<- Message
 }
 
+// ServeHTTP is the http handler for a producer.
 func (p *ProducerClient) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/"), "/")
@@ -41,6 +44,7 @@ func (p *ProducerClient) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// NewProducer creates a new producer. It listens on listenAddr and sends messages to producech.
 func NewProducer(listenAddr string, producerch chan Message) Producer {
 	return &ProducerClient{
 		listenAddr: listenAddr,
@@ -48,6 +52,7 @@ func NewProducer(listenAddr string, producerch chan Message) Producer {
 	}
 }
 
+// Start starts the producer. It listens on listenAddr.
 func (p *ProducerClient) Start() error {
 	slog.Info(fmt.Sprintf("Listening on %s", p.listenAddr))
 	return http.ListenAndServe(p.listenAddr, p)

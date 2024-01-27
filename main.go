@@ -11,7 +11,8 @@ func main() {
 	slog.SetDefault(logger)
 
 	cfg := &Config{
-		ListenAddr: ":5001",
+		ListenAddrHttp: ":5001",
+		ListenAddrWS:   ":5002",
 		StoreProducerFunc: func() Storer {
 			return NewMemory()
 		},
@@ -27,6 +28,6 @@ func main() {
 	}
 }
 
-// Are you planning on leveraging the linux filesystem copy to actually benefit from not
+// planning on leveraging the linux filesystem copy to actually benefit from not
 // copying data from kernel space -> user space and back to kernel space? That's
 // the reason for kafka 3mil tx /sec.

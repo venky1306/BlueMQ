@@ -2,63 +2,68 @@ package main
 
 import (
 	"fmt"
+	"sync"
 
 	"golang.org/x/exp/slog"
 )
 
+// Message is a message.
 type Message struct {
 	Topic string
 	Value []byte
 }
 
-type Request struct {
-	Topic string
-	Index int
-}
-
 type Config struct {
-	ListenAddr        string
+	ListenAddrHttp    string
+	ListenAddrWS      string
 	StoreProducerFunc StoreProducerFunc
 }
 
+// Server struct is the main struct for the server.
 type Server struct {
 	*Config
 
 	topics map[string]Storer
 
-	// consumers []Consumer
+	mu    sync.Mutex
+	peers map[Peer]bool
+
+	subscribers map[string][]Peer
+
+	consumers  []Consumer
 	producers  []Producer
 	producech  chan Message
-	consumech  chan Request
 	quitsignal chan struct{}
 }
 
+// NewServer creates a new server.
 func NewServer(c *Config) (*Server, error) {
 	producerch := make(chan Message)
-	consumech := make(chan Request)
-	return &Server{
-		Config:     c,
-		topics:     make(map[string]Storer),
-		producech:  producerch,
-		consumech:  consumech,
-		quitsignal: make(chan struct{}),
-		// consumers: []Consumer{
-		// 	NewConsumer(c.ListenAddr, consumech),
-		// },
+	s := &Server{
+		Config:      c,
+		topics:      make(map[string]Storer),
+		peers:       make(map[Peer]bool),
+		subscribers: make(map[string][]Peer),
+		producech:   producerch,
+		quitsignal:  make(chan struct{}),
+		consumers:   []Consumer{},
 		producers: []Producer{
-			NewProducer(c.ListenAddr, producerch),
+			NewProducer(c.ListenAddrHttp, producerch),
 		},
-	}, nil
+	}
+	s.consumers = append(s.consumers, NewConsumer(c.ListenAddrWS, s))
+	return s, nil
 }
 
+// Start starts the server.
 func (s *Server) Start() error {
 	for _, p := range s.producers {
 		// fmt.Println("starting producer")
 		go p.Start()
 	}
-	// // for _, c := range s.consumers {
-	// // 	go c.Start()
-	// // }
+	for _, c := range s.consumers {
+		go c.Start()
+	}
 	for {
 		select {
 		case <-s.quitsignal:
@@ -70,20 +75,69 @@ func (s *Server) Start() error {
 			} else {
 				slog.Info(fmt.Sprintf("Published message to topic %s with index %d", m.Topic, index))
 			}
-			// case index := <-s.consumech:
 		}
 	}
 }
 
+// Publish publishes a message.
 func (s *Server) publish(msg Message) (int, error) {
 	storer, ok := s.topics[msg.Topic]
 	if !ok {
 		storer = s.StoreProducerFunc()
 		s.topics[msg.Topic] = storer
 	}
-	return storer.Put(msg.Value)
+	val, err := storer.Put(msg.Value)
+	if err != nil {
+		return 0, err
+	}
+	for _, p := range s.subscribers[msg.Topic] {
+		go p.Send(msg.Value)
+	}
+	return val, nil
 }
 
-func (s *Server) consume(index int) (Message, error) {
-	return Message{}, nil
+// Stop stops the server.
+func (s *Server) Stop() {
+	close(s.quitsignal)
+}
+
+// AddConn adds a connection.
+func (s *Server) AddConn(p Peer) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	slog.Info("Adding connection", "peer", fmt.Sprint(p))
+	s.peers[p] = true
+}
+
+// RemoveConn removes a connection.
+func (s *Server) RemoveConn(p Peer) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	slog.Info("Removing connection", "peer", fmt.Sprint(p))
+	delete(s.peers, p)
+}
+
+// AddSubscriber adds a subscriber.
+func (s *Server) AddSubscriber(topic string, p Peer) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	slog.Info("Adding subscriber", "topic", topic, "peer", fmt.Sprint(p))
+	s.subscribers[topic] = append(s.subscribers[topic], p)
+}
+
+// RemoveSubscriber removes a subscriber.
+func (s *Server) RemoveSubscriber(topic string, p Peer) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	slog.Info("Removing subscriber", "topic", topic, "peer", fmt.Sprint(p))
+	for i, peer := range s.subscribers[topic] {
+		if peer == p {
+			s.subscribers[topic] = append(s.subscribers[topic][:i], s.subscribers[topic][i+1:]...)
+			return
+		}
+	}
 }
