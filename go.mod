@@ -7,4 +7,7 @@ require (
 	golang.org/x/exp v0.0.0-20231226003508-02704c960a9b
 )
 
-require golang.org/x/net v0.17.0 // indirect
+require (
+	golang.org/x/net v0.17.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1
+)
