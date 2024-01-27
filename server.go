@@ -14,9 +14,10 @@ type Message struct {
 }
 
 type Config struct {
-	ListenAddrHttp    string
-	ListenAddrWS      string
-	StoreProducerFunc StoreProducerFunc
+	ProducerListenAddrHttp string
+	ConsumerListenAddrWS   string
+	WalPath                string
+	StoreProducerFunc      StoreProducerFunc
 }
 
 // Server struct is the main struct for the server.
@@ -48,10 +49,10 @@ func NewServer(c *Config) (*Server, error) {
 		quitsignal:  make(chan struct{}),
 		consumers:   []Consumer{},
 		producers: []Producer{
-			NewProducer(c.ListenAddrHttp, producerch),
+			NewProducer(c.ProducerListenAddrHttp, producerch),
 		},
 	}
-	s.consumers = append(s.consumers, NewConsumer(c.ListenAddrWS, s))
+	s.consumers = append(s.consumers, NewConsumer(c.ConsumerListenAddrWS, s))
 	return s, nil
 }
 
