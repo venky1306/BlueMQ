@@ -1,0 +1,4 @@
+---
+producer_port: 5001
+consumer_port: 5002
+wal_path: "wal.aof"
