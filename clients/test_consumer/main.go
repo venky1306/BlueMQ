@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -31,12 +33,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	recv := 0
 	for {
-		_, b, err := conn.ReadMessage()
+		_, _, err := conn.ReadMessage()
 		if err != nil {
 			log.Fatal(err)
 		}
-		log.Println(string(b))
+		recv++
+		if (recv % 100) == 0 {
+			fmt.Println(time.Now().UnixNano() / 1000000)
+		}
 	}
 }
