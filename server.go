@@ -42,7 +42,7 @@ func NewServer(c *Config) (*Server, error) {
 	producerch := make(chan Message)
 	s := &Server{
 		Config:      c,
-		topics:      make(map[string]Storer),
+		topics:      make(map[string]Storer), // topics mapping to corresponding Storer obj.
 		peers:       make(map[Peer]bool),
 		subscribers: make(map[string][]Peer),
 		producech:   producerch,
@@ -118,6 +118,11 @@ func (s *Server) RemoveConn(p Peer) {
 
 	slog.Info("Removing connection", "peer", fmt.Sprint(p))
 	delete(s.peers, p)
+	for topic := range s.subscribers {
+		go s.RemoveSubscriber(topic, p)
+	}
+	err := p.Close()
+	slog.Error("Err Closing connection.", fmt.Sprint(err.Error()))
 }
 
 // AddSubscriber adds a subscriber.
