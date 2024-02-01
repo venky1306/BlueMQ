@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"sync"
 
 	"github.com/gorilla/websocket"
 	"golang.org/x/exp/slog"
@@ -10,12 +11,14 @@ import (
 // Peer is an interface for a peer.
 type Peer interface {
 	Send([]byte) error
+	Close() error
 }
 
 // PeerClient is a client for a peer.
 type PeerClient struct {
 	conn   *websocket.Conn
 	server *Server
+	mu     sync.Mutex
 }
 
 // NewPeer creates a new peer.
@@ -70,7 +73,7 @@ func (p *PeerClient) handleMsg(msg CMessage) error {
 		}
 	case "close":
 		slog.Info("Got close message")
-		p.Close()
+		p.server.RemoveConn(p)
 	default:
 		slog.Error("Got unknown message", "action", msg.Action)
 	}
@@ -83,5 +86,7 @@ func (p *PeerClient) Close() error {
 
 // Send sends a message to a peer.
 func (p *PeerClient) Send(msg []byte) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	return p.conn.WriteMessage(websocket.TextMessage, msg)
 }
